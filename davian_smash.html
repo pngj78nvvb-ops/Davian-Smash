@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Davian Smash</title>
+<style>
+    body{
+        margin:0;
+        background: radial-gradient(circle at top, #1a1a40, #050510);
+        font-family: Arial, sans-serif;
+        color:white;
+        overflow:hidden;
+    }
+    h1{
+        text-align:center;
+        font-size:48px;
+        margin:10px 0;
+        color:#00f7ff;
+        text-shadow:0 0 10px #00f7ff,0 0 20px #00f7ff;
+    }
+    #gameContainer{
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        flex-direction:column;
+    }
+    canvas{
+        border:4px solid #00f7ff;
+        border-radius:12px;
+        box-shadow:0 0 20px #00f7ff;
+        background:black;
+    }
+    #ui{
+        display:flex;
+        gap:30px;
+        margin-bottom:10px;
+        font-size:22px;
+    }
+    .panel{
+        background:rgba(255,255,255,0.08);
+        padding:10px 18px;
+        border-radius:10px;
+        box-shadow:0 0 10px rgba(0,247,255,0.5);
+    }
+    #message{
+        margin-top:10px;
+        font-size:24px;
+        color:#ffe600;
+        text-shadow:0 0 10px #ffe600;
+    }
+</style>
+</head>
+<body>
+<h1>⚡ Davian Smash ⚡</h1>
+
+<div id="gameContainer">
+    <div id="ui">
+        <div class="panel">Score: <span id="score">0</span></div>
+        <div class="panel">Level: <span id="level">1</span></div>
+        <div class="panel">Lives: <span id="lives">3</span></div>
+    </div>
+
+    <canvas id="game" width="600" height="600"></canvas>
+    <div id="message">Collect all the stars and avoid the enemies!</div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const tileSize = 30;
+const rows = 20;
+const cols = 20;
+
+let score = 0;
+let level = 1;
+let lives = 3;
+
+const scoreText = document.getElementById("score");
+const levelText = document.getElementById("level");
+const livesText = document.getElementById("lives");
+const message = document.getElementById("message");
+
+let map = [];
+let pellets = [];
+
+function createMap() {
+    map = [];
+    pellets = [];
+
+    for(let r=0;r<rows;r++){
+        let row = [];
+        for(let c=0;c<cols;c++){
+            if(r===0 || c===0 || r===rows-1 || c===cols-1 || 
+               (r%4===0 && c>2 && c<17)){
+                row.push(1);
+            } else {
+                row.push(0);
+                pellets.push({x:c,y:r});
+            }
+        }
+        map.push(row);
+    }
+}
+
+createMap();
+
+const player = {
+    x:1,
+    y:1,
+    color:"#00f7ff"
+};
+
+let enemies = [];
+
+function createEnemies() {
+    enemies = [];
+    for(let i=0;i<level+1;i++){
+        enemies.push({
+            x: cols-2-i,
+            y: rows-2,
+            color:["#ff4d4d","#ff66ff","#ffaa00","#66ff66"][i%4]
+        });
+    }
+}
+
+createEnemies();
+
+const keys = {};
+
+document.addEventListener("keydown",(e)=>{
+    keys[e.key] = true;
+});
+
+document.addEventListener("keyup",(e)=>{
+    keys[e.key] = false;
+});
+
+function movePlayer(){
+    let nx = player.x;
+    let ny = player.y;
+
+    if(keys["ArrowUp"]) ny--;
+    if(keys["ArrowDown"]) ny++;
+    if(keys["ArrowLeft"]) nx--;
+    if(keys["ArrowRight"]) nx++;
+
+    if(map[ny][nx] !== 1){
+        player.x = nx;
+        player.y = ny;
+    }
+
+    pellets = pellets.filter(p=>{
+        if(p.x===player.x && p.y===player.y){
+            score += 10;
+            scoreText.textContent = score;
+            return false;
+        }
+        return true;
+    });
+
+    if(pellets.length===0){
+        level++;
+        levelText.textContent = level;
+        message.textContent = "🔥 Level Up!";
+        createMap();
+        createEnemies();
+        player.x = 1;
+        player.y = 1;
+    }
+}
+
+function moveEnemies(){
+    enemies.forEach(enemy=>{
+        let dirs = [
+            {x:1,y:0},
+            {x:-1,y:0},
+            {x:0,y:1},
+            {x:0,y:-1}
+        ];
+
+        let dir = dirs[Math.floor(Math.random()*dirs.length)];
+
+        let nx = enemy.x + dir.x;
+        let ny = enemy.y + dir.y;
+
+        if(map[ny][nx] !== 1){
+            enemy.x = nx;
+            enemy.y = ny;
+        }
+
+        if(enemy.x===player.x && enemy.y===player.y){
+            lives--;
+            livesText.textContent = lives;
+            player.x = 1;
+            player.y = 1;
+            message.textContent = "💥 You got hit!";
+
+            if(lives<=0){
+                alert("Game Over! Final Score: " + score);
+                location.reload();
+            }
+        }
+    });
+}
+
+function drawMap(){
+    for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+            if(map[r][c]===1){
+                ctx.fillStyle = "#14213d";
+                ctx.fillRect(c*tileSize,r*tileSize,tileSize,tileSize);
+
+                ctx.strokeStyle = "#00f7ff";
+                ctx.strokeRect(c*tileSize,r*tileSize,tileSize,tileSize);
+            }
+        }
+    }
+}
+
+function drawPellets(){
+    pellets.forEach(p=>{
+        ctx.fillStyle = "#ffe600";
+        ctx.beginPath();
+        ctx.arc(
+            p.x*tileSize+tileSize/2,
+            p.y*tileSize+tileSize/2,
+            5,0,Math.PI*2
+        );
+        ctx.fill();
+    });
+}
+
+function drawPlayer(){
+    ctx.fillStyle = player.color;
+    ctx.beginPath();
+    ctx.arc(
+        player.x*tileSize+tileSize/2,
+        player.y*tileSize+tileSize/2,
+        12,0,Math.PI*2
+    );
+    ctx.fill();
+
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = "#00f7ff";
+}
+
+function drawEnemies(){
+    enemies.forEach(enemy=>{
+        ctx.fillStyle = enemy.color;
+        ctx.beginPath();
+        ctx.arc(
+            enemy.x*tileSize+tileSize/2,
+            enemy.y*tileSize+tileSize/2,
+            12,0,Math.PI*2
+        );
+        ctx.fill();
+    });
+}
+
+function gameLoop(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    drawMap();
+    drawPellets();
+    movePlayer();
+    moveEnemies();
+    drawPlayer();
+    drawEnemies();
+
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
